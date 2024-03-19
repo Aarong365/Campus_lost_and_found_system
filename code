@@ -1,0 +1,1270 @@
+建立数据库的SQL语句
+CREATE TABLE 用户
+(
+账号 bigint identity(10000000,1) PRIMARY KEY,
+密码 nvarchar(20) NOT NULL DEFAULT '123456',
+姓名 nvarchar(10) NOT NULL,
+昵称 nvarchar(20) NOT NULL DEFAULT '游客登录',
+联系方式 nvarchar(20) NOT NULL UNIQUE,
+信誉等级 nvarchar(10)  DEFAULT '0',
+认领成功数 nvarchar(10) DEFAULT '0'
+)
+
+CREATE TABLE 物品
+(
+物品id int identity(1,1) PRIMARY KEY ,
+案件性质 nvarchar(4) CHECK (案件性质 IN('失物','招领')),
+种类 nvarchar(10) CHECK (种类 IN('书籍/文具','证件','雨伞/钥匙','电子产品','其他')),
+时间 nvarchar(20) NOT NULL,
+区域 nvarchar(10) CHECK (区域 IN('A区','B区','C区','D区','F区','其他')), 
+相关描述 nvarchar(40) DEFAULT '用户暂未添加相关描述',
+物品状态 nvarchar(10) CHECK (物品状态 IN('处理中','已找回','无人认领')),
+发布账号 bigint FOREIGN KEY REFERENCES 用户(账号)
+)
+
+CREATE TABLE 认定
+(
+物品id int NOT NULL UNIQUE FOREIGN KEY REFERENCES 物品(物品id),
+物品特征 nvarchar(40),
+拾取人账号 bigint NOT NULL  FOREIGN KEY REFERENCES 用户(账号),
+认领人账号 bigint NOT NULL  FOREIGN KEY REFERENCES 用户(账号)
+)
+
+CREATE TABLE 管理员
+(
+账号 nvarchar(10) PRIMARY KEY,
+密码 nvarchar(20) NOT NULL DEFAULT '123456789',
+区域 nvarchar(10) CHECK (区域 IN('A区','B区','C区','D区','F区','其他')), 
+二次密码 nvarchar(10)
+)
+
+CREATE VIEW 失物 
+AS
+SELECT 种类,时间,区域,发布账号
+FROM 物品
+WHERE 案件性质='失物'; 
+CREATE VIEW 招领 
+AS
+SELECT 种类,时间,区域,发布账号
+FROM 物品
+WHERE 案件性质='招领'; 
+
+create view 认领关系(物品id,用户账号,发布账号,认领人账号,时间,物品状态)
+as 
+select 物品.物品id,用户.账号,物品.发布账号,认领人账号,时间,物品.物品状态
+from 物品,认定,用户
+where 物品.物品id = 认定.物品id and 物品.发布账号 = 用户.账号;
+
+Program.cs
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace 管理员2
+{
+    static class Program
+    {
+        /// <summary>
+        /// 应用程序的主入口点。
+        /// </summary>
+        [STAThread]
+        static void Main()
+        {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            Application.Run(new 首页());
+        }
+    }
+}
+首页.cs
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace 管理员2
+{
+    public partial class 首页 : Form
+    {
+        public 首页()
+        {
+            InitializeComponent();
+        }
+
+        private void 首页_Load(object sender, EventArgs e)
+        {
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.招领”中。您可以根据需要移动或删除它。
+            this.招领TableAdapter.Fill(this.校园失物招领系统DataSet4.招领);
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.失物”中。您可以根据需要移动或删除它。
+            this.失物TableAdapter.Fill(this.校园失物招领系统DataSet4.失物);
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            注册 nf = new 注册();
+            nf.ShowDialog();
+
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            登录 nf = new 登录();
+            nf.ShowDialog();
+        }
+
+        private void label3_Click(object sender, EventArgs e)
+        {
+        }
+
+        private void label1_Click(object sender, EventArgs e)
+        {
+        }
+    }
+}
+注册.cs
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Data.SqlClient;
+namespace 管理员2
+{
+    public partial class 注册 : Form
+    {
+        private string mima;
+        private string nicheng;
+        private string xingming;
+        private string lianxi;
+        public 注册()
+        {
+            InitializeComponent();
+        }
+        private void 注册_Load(object sender, EventArgs e)
+        {
+        }
+        private void button1_Click(object sender, EventArgs e) //用户注册
+        {
+            string str = "server=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+            SqlConnection conn = new SqlConnection(str);
+            conn.Open();
+            if (textBox1.Text != "" && textBox2.Text != "" && textBox3.Text != "" && textBox4.Text != "")
+            {
+                SqlCommand cmd2 = new SqlCommand("select count(*) from 用户 where 联系方式='" + textBox4.Text + "'", conn);
+                int b = Convert.ToInt32(cmd2.ExecuteScalar());
+
+                if (b < 1)
+                {
+                    string sj = "insert into 用户(密码,昵称,姓名,联系方式) values('" + textBox1.Text + "','" + textBox2.Text + "','" + textBox3.Text + "','" + textBox4.Text + "')";
+                    SqlCommand cmd = new SqlCommand(sj, conn);
+                    cmd.ExecuteNonQuery();
+                    mima = textBox1.Text.ToString();
+                    nicheng = textBox2.Text.ToString();
+                    xingming = textBox3.Text.ToString();
+                    lianxi = textBox4.Text.ToString();
+                    MessageBox.Show("注册成功!", "提示");
+                    conn.Close();
+                }
+                if (b >= 1)
+                {
+                    MessageBox.Show("该号码已注册！", "提示");
+                    textBox1.Text = "";
+                    textBox2.Text = "";
+                    textBox3.Text = "";
+                    textBox4.Text = "";
+                }
+            }
+            else { MessageBox.Show("请填写完整信息!", "提示"); }
+            string strsql = "select 账号 from 用户 where 联系方式='" + textBox4.Text + "'";
+            SqlCommand cmd1 = new SqlCommand(strsql, conn);
+            SqlDataAdapter da = new SqlDataAdapter(cmd1);
+            DataSet ds = new DataSet();
+            da.Fill(ds);
+            dataGridView1.DataSource = ds.Tables[0];
+            MessageBox.Show("您的账号为：'" + dataGridView1.Rows[0].Cells[0].Value.ToString() + "'", "提示", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+            conn.Close();
+            登录 form5 = new 登录();
+            form5.Show();
+            this.Hide();//隐藏注册的界面
+        }
+
+        private void dataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+        }
+    }
+}
+登录.cs
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Data.SqlClient;
+using System.Threading;
+namespace 管理员2
+{
+    public partial class 登录 : Form
+    {
+        public 登录()
+        {
+            InitializeComponent();
+        }
+        // 普通用户登录
+        private void button1_Click(object sender, EventArgs e)
+        {
+            String username = textBox1.Text.Trim();
+            String password = textBox2.Text.Trim();
+            String myConnString = "server=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+            using (SqlConnection sqlConnection = new SqlConnection(myConnString))
+            {
+                sqlConnection.Open();
+                String sql = "select 账号,密码 from 用户 where 账号=@username and 密码=@password";
+                using (SqlCommand sqlCommand = new SqlCommand(sql, sqlConnection))
+                {
+                    // 预编译防止SQL注入
+                    sqlCommand.Parameters.AddWithValue("@username", username);
+                    sqlCommand.Parameters.AddWithValue("@password", password);
+                    SqlDataReader sqlDataReader = sqlCommand.ExecuteReader();
+                    if (sqlDataReader.HasRows)
+                    {
+                        MessageBox.Show("登录成功！", "Tips", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+                        用户个人界面 fn = new 用户个人界面();
+                        fn.Show();
+                        this.Hide();
+                    }
+                    else
+                    {
+                        MessageBox.Show("用户名或密码错误！", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+        // 管理员登录
+        private void button2_Click(object sender, EventArgs e)
+        {
+            String username = textBox1.Text.Trim();
+            String password = textBox2.Text.Trim();
+            String myConnString = "server=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+            using (SqlConnection sqlConnection = new SqlConnection(myConnString))
+            {
+                sqlConnection.Open();
+               String sql = "select 账号,密码 from 管理员 where 账号=@username and 密码=@password";
+                using (SqlCommand sqlCommand = new SqlCommand(sql, sqlConnection))
+                {
+                    // 预编译防止SQL注入
+                    sqlCommand.Parameters.AddWithValue("@username", username);
+                    sqlCommand.Parameters.AddWithValue("@password", password);
+                    SqlDataReader sqlDataReader = sqlCommand.ExecuteReader();
+                    if (sqlDataReader.HasRows)
+                    {
+                        MessageBox.Show("登录成功！", "Tips", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+                        功能选择界面 fn = new 功能选择界面();
+                        fn.Show();
+                        this.Hide();
+                    }
+                    else
+                    {
+                        MessageBox.Show("用户名或密码错误！", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+        private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            找回密码 nf = new 找回密码();
+            nf.ShowDialog();
+        }
+        private void 登录_Load(object sender, EventArgs e)
+        {
+        }
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+        }
+    }
+}
+用户个人界面.cs
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Data.SqlClient;
+namespace 管理员2
+{
+    public partial class 用户个人界面 : Form
+    {
+        public 用户个人界面()
+        {
+            InitializeComponent();
+        }
+        private void label1_Click(object sender, EventArgs e)
+        {
+        }
+        private void button1_Click(object sender, EventArgs e)
+        {
+            失物发布 NewForm5 = new 失物发布();
+            NewForm5.Show();
+        }
+        private void button2_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (this.textBox3.Text == "" && this.textBox1.Text == "")
+                    MessageBox.Show("请正确输入账号完整信息！", "提示");
+                else if (this.textBox4.Text != this.textBox5.Text)
+                    MessageBox.Show("两次输入密码不同！");
+                else
+                {
+                    string strsql = "update 用户 set 密码 =  '" + textBox4.Text + "'where 账号 ='" + textBox2.Text + "'";
+                    SqlConnection conn = new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+                    SqlCommand cmd = new SqlCommand(strsql, conn);
+                    SqlDataAdapter da = new SqlDataAdapter(cmd);
+                    DataSet ds = new DataSet();
+                    da.Fill(ds);
+                    dataGridView1.DataSource = ds.Tables[0];
+                }
+            }
+            catch
+            {
+                MessageBox.Show("修改成功！", "提示");
+                MessageBox.Show("请您重新登录！", "提示");
+                登录 NewForm5 = new 登录();
+                NewForm5.Show();
+                this.Hide();
+            }
+        }
+        private void button3_Click(object sender, EventArgs e) //修改物品状态
+        {
+            try
+            {
+                if (this.textBox1.Text == "" && this.textBox6.Text == "" && this.comboBox1.Text == "")
+                    MessageBox.Show("请输入正确的修改信息！", "提示");
+                else
+                {
+                    string strsql = " update 物品 set 物品状态 = '" + comboBox1.Text + "'where 物品id = '" + textBox1.Text + "'";
+                    SqlConnection conn = new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+                    SqlCommand cmd = new SqlCommand(strsql, conn);
+                    SqlDataAdapter da = new SqlDataAdapter(cmd);
+                    DataSet ds = new DataSet();
+                    da.Fill(ds);
+                    if (ds != null && ds.Tables != null && ds.Tables.Count > 0 && ds.Tables[0].Rows.Count > 0)
+                    {
+                        MessageBox.Show("已成功修改物品状态！", "提示");
+                    }
+                    else
+                    {
+                        dataGridView1.DataSource = ds.Tables[0];
+                    }
+                }
+            }
+            catch
+            {
+                MessageBox.Show("已成功修改物品状态！", "提示");
+            }
+        }
+        private void button4_Click(object sender, EventArgs e)
+        {
+            认领 nf = new 认领();
+            nf.ShowDialog();
+        }
+        private void button5_Click(object sender, EventArgs e)
+        {
+            string strsql = " select 物品id,物品状态,发布账号 from 物品 where 发布账号 ='"+ textBox6.Text + "'";
+            SqlConnection conn =
+            new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+            SqlCommand cmd = new SqlCommand(strsql, conn);
+            SqlDataAdapter da = new SqlDataAdapter(cmd);
+            DataSet ds = new DataSet();
+            da.Fill(ds);
+            dataGridView1.DataSource = ds.Tables[0];
+        }
+        private void tabPage2_Click(object sender, EventArgs e)
+        {
+        }
+        private void textBox2_TextChanged(object sender, EventArgs e)
+        {
+        }
+        private void 用户个人界面_Load(object sender, EventArgs e)
+        {
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.物品”中。您可以根据需要移动或删除它。
+            this.物品TableAdapter.Fill(this.校园失物招领系统DataSet4.物品);
+        }
+        private void dataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            /*string strsql = " select 物品id,物品状态 from 物品 where 发布账号 = '" + textBox6.Text + "'";
+            SqlConnection conn = new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+            SqlCommand cmd = new SqlCommand(strsql, conn);
+            SqlDataAdapter da = new SqlDataAdapter(cmd);
+            DataSet ds = new DataSet();
+            da.Fill(ds);
+            dataGridView1.DataSource = ds.Tables[0];*/
+        }
+        private void button6_Click(object sender, EventArgs e)
+        {
+        }
+        private void button6_Click_1(object sender, EventArgs e)
+        {
+            if (this.textBox6.Text == "")
+                MessageBox.Show("请输入您的账号！", "提示");
+            else
+            {
+                string strsql = " select 物品id,物品状态,发布账号 from 物品 where 发布账号 like '%" + textBox6.Text + "%'";
+                SqlConnection conn =
+                new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+                SqlCommand cmd = new SqlCommand(strsql, conn);
+                SqlDataAdapter da = new SqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                da.Fill(ds);
+                dataGridView1.DataSource = ds.Tables[0];
+            }
+        }
+    }
+}
+
+失物发布.cs
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Data.SqlClient;
+
+namespace 管理员2
+{
+    public partial class 失物发布 : Form
+    {
+        private string xinzhi;
+        private string zhonglei;
+        private string date;
+        private string qvyu;
+        private string miaoshu;
+        private string zhuangtai;
+        private string zhanghao;
+        public 失物发布()
+        {
+            InitializeComponent();
+        }
+        private void 失物发布_Load(object sender, EventArgs e)
+        {
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.失物”中。您可以根据需要移动或删除它。
+            this.失物TableAdapter.Fill(this.校园失物招领系统DataSet4.失物);
+         
+        }
+        private void label1_Click(object sender, EventArgs e)
+        {
+        }
+        private void button1_Click(object sender, EventArgs e)
+        {
+            string str = "server=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+            SqlConnection conn = new SqlConnection(str);
+            conn.Open();
+            if (this.comboBox1.Text != "" && this.comboBox2.Text != "" && this.dateTimePicker1.Text != "" && this.comboBox3.Text != "" && this.textBox1.Text != "" && this.comboBox4.Text != "" && this.textBox2.Text != "")
+            {
+                string sj = "insert into 物品 values('" + comboBox1.Text + "','" + comboBox2.Text + "','" + dateTimePicker1.Value.ToString("d") + "','" + comboBox3.Text + "','" + textBox1.Text + "','" + comboBox4.Text + "','" + textBox2.Text + "')";
+                SqlCommand cmd = new SqlCommand(sj, conn);
+                cmd.ExecuteNonQuery();  
+                xinzhi = comboBox1.Text.ToString();
+                zhonglei = comboBox2.Text.ToString();
+                date = dateTimePicker1.Text.ToString();
+                qvyu = comboBox3.Text.ToString();
+                miaoshu = textBox1.Text.ToString();
+                zhuangtai = comboBox4.Text.ToString();
+                zhanghao = textBox2.Text.ToString();
+                MessageBox.Show("登记成功!", "提示");
+                conn.Close();
+            }
+            else { MessageBox.Show("请填写完整信息!", "提示"); }
+            conn.Close();
+        }
+        private void button2_Click(object sender, EventArgs e)
+        {
+            string strsql = " select * from 失物 ";
+            SqlConnection conn =
+            new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+            SqlCommand cmd = new SqlCommand(strsql, conn);
+            SqlDataAdapter da = new SqlDataAdapter(cmd);
+            DataSet ds = new DataSet();
+            da.Fill(ds);
+            dataGridView1.DataSource = ds.Tables[0];
+        }
+    }
+}
+认领.cs
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Data.SqlClient;
+namespace 管理员2
+{
+    public partial class 认领 : Form
+    {
+        public 认领()
+        {
+            InitializeComponent();
+        }
+        private void label3_Click(object sender, EventArgs e)
+        {
+        }
+        private void button1_Click(object sender, EventArgs e)
+        {
+            if (this.comboBox1.Text == "")
+                MessageBox.Show("请输入查询内容！","提示");
+            else
+            {
+                string strsql = " select * from 物品 where 种类 like '%" + comboBox1.Text + "%'";
+                SqlConnection conn = new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+                SqlCommand cmd = new SqlCommand(strsql, conn);
+                SqlDataAdapter da = new SqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                da.Fill(ds);
+                dataGridView1.DataSource = ds.Tables[0];
+            }
+        }
+        private void button2_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string str = "Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+                SqlConnection conn = new SqlConnection(str);
+                conn.Open();
+                string stj;
+                if (textBox1.Text != "" && textBox2.Text != "" && textBox4.Text != "")
+                {
+                    SqlCommand cmd1 = new SqlCommand("select count(*) from 物品 where 物品id=null", conn);
+                    int b = Convert.ToInt32(cmd1.ExecuteScalar());
+                    if (b < 1)
+                    {
+                        stj = "insert into 认定(物品id,物品特征,拾取人账号,认领人账号) values('" + textBox1.Text + "','" + textBox3.Text + "','" + textBox2.Text + "','" + textBox4.Text + "')";
+                        SqlCommand cmd = new SqlCommand(stj, conn);
+                        cmd.ExecuteNonQuery();
+                        MessageBox.Show("认领成功!", "提示");
+                        DataSet dsl1 = new DataSet();
+                        SqlDataAdapter sda1;
+                        sda1 = new SqlDataAdapter("update 物品 set 物品状态 = '已找回'where 物品id='" + textBox1.Text + "'", conn);
+                        sda1.Fill(dsl1);
+                        dataGridView1.DataSource = dsl1.Tables[0];
+                        dataGridView1.DataSource = dsl1.Tables[0];
+                        conn.Close();
+                    }
+                    if (b >= 1)
+                    {
+                        MessageBox.Show("该物品已被认领！", "提示");
+                        comboBox1.Text = "";
+                    }
+                }
+                else { MessageBox.Show("认领失败！请输入完整的认领信息！", "提示"); }
+                conn.Close();
+            }
+            catch
+            {
+                MessageBox.Show("操作完成！", "提示");
+            }
+        }
+        private void 认领_Load(object sender, EventArgs e)
+        {
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.物品”中。您可以根据需要移动或删除它。
+            this.物品TableAdapter.Fill(this.校园失物招领系统DataSet4.物品);
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.招领”中。您可以根据需要移动或删除它。
+
+        }
+    }
+}
+功能选择界面.cs
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+namespace 管理员2
+{
+    public partial class 功能选择界面 : Form
+    {
+        public 功能选择界面()
+        {
+            InitializeComponent();
+        }
+        private void button1_Click(object sender, EventArgs e)//用户信息
+        {
+            管理用户信息 nf = new 管理用户信息();
+            nf.ShowDialog();
+        }
+        private void button2_Click(object sender, EventArgs e)//物品信息
+        {
+            管理物品信息 nf = new 管理物品信息();
+            nf.ShowDialog();
+        }
+        private void button3_Click(object sender, EventArgs e)//认定信息
+        {
+            管理认定信息 nf = new 管理认定信息();
+            nf.ShowDialog();
+        }
+        private void button4_Click(object sender, EventArgs e)//导出统计数据
+        {
+            导出数据 nf = new 导出数据();
+            nf.ShowDialog();
+        }
+        private void button5_Click(object sender, EventArgs e)
+        {
+        }
+    }
+}
+管理认定信息.cs
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Data.SqlClient;
+namespace 管理员2
+{
+    public partial class 管理认定信息 : Form
+    {
+        public 管理认定信息()
+        {
+            InitializeComponent();
+        }
+
+        private void Form4_Load(object sender, EventArgs e)
+        {
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.物品”中。您可以根据需要移动或删除它。
+            this.物品TableAdapter.Fill(this.校园失物招领系统DataSet4.物品);
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.认定”中。您可以根据需要移动或删除它。
+            this.认定TableAdapter.Fill(this.校园失物招领系统DataSet4.认定);
+  
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.认定”中。您可以根据需要移动或删除它。
+            this.认定TableAdapter.Fill(this.校园失物招领系统DataSet4.认定);
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.物品”中。您可以根据需要移动或删除它。
+            this.物品TableAdapter.Fill(this.校园失物招领系统DataSet4.物品);
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.物品”中。您可以根据需要移动或删除它。
+            this.物品TableAdapter.Fill(this.校园失物招领系统DataSet4.物品);
+           
+        }
+
+        private void button2_Click(object sender, EventArgs e) //删除已成功认领的物品信息
+        {
+            string str = "server=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+            SqlConnection conn = new SqlConnection(str);
+            conn.Open();
+
+            if (textBox1.Text != "" && textBox2.Text != "")
+            {
+                string i = "select count(*) from 认定 where 拾取人账号='" + textBox1.Text + "' and 物品id='" + textBox2.Text + "'";
+                SqlCommand cmd2 = new SqlCommand(i, conn);
+                int b = Convert.ToInt32(cmd2.ExecuteScalar());
+                if (b >= 1)
+                {
+                    string sql = "delete from 认定 where  拾取人账号='" + textBox1.Text + "' and 物品id='" + textBox2.Text + "'";
+                    SqlCommand cmd = new SqlCommand(sql, conn);
+                    cmd.ExecuteNonQuery();
+                   // SqlCommand cmd1 = new SqlCommand("update 认定 set 物品状态='已找回' where 物品id='" + textBox2.Text + "'", conn);
+                    //cmd1.ExecuteNonQuery();
+                    MessageBox.Show("删除成功!", "提示");
+                    DataSet dsl = new DataSet();
+                    SqlDataAdapter sda;
+                    sda = new SqlDataAdapter("Select * from 认定", conn);
+                    sda.Fill(dsl);
+                    dataGridView1.DataSource = dsl.Tables[0];
+                    DataSet dsl1 = new DataSet();
+                    SqlDataAdapter sda1;
+                    sda1 = new SqlDataAdapter("Select * from 认定", conn);
+                    sda1.Fill(dsl1);
+                    dataGridView1.DataSource = dsl1.Tables[0];
+                    dataGridView2.DataSource = dsl1.Tables[0];
+                    conn.Close();
+                }
+                if (b < 1) { MessageBox.Show("请输入正确的选项!", "提示"); }
+            }
+            else { MessageBox.Show("请输入删除完整信息！", "提示"); }
+        }
+
+        private void label3_Click(object sender, EventArgs e)
+        {
+        }
+        private void textBox4_TextChanged(object sender, EventArgs e)
+        {
+        }
+        private void label4_Click(object sender, EventArgs e)
+        {
+        }
+        private void button1_Click(object sender, EventArgs e)
+        {
+                string strsql = "Select * from 物品 where 物品状态='无人认领'";
+                SqlConnection conn = new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+                SqlCommand cmd = new SqlCommand(strsql, conn);
+                SqlDataAdapter da = new SqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                da.Fill(ds);
+                dataGridView2.DataSource = ds.Tables[0];
+        }
+        private void button3_Click(object sender, EventArgs e) //删除长期无人认领的物品信息
+        {
+            string str = "server=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+            SqlConnection conn = new SqlConnection(str);
+            conn.Open();
+            if (textBox3.Text != "")
+            {
+                string i = "select count(*) from 物品 where 物品状态='无人认领'";
+                SqlCommand cmd2 = new SqlCommand(i, conn);
+                int b = Convert.ToInt32(cmd2.ExecuteScalar());
+                if (b >= 1)
+                {
+                    string sql = "delete from 物品 where 物品id='" + textBox3.Text + "'";
+                    SqlCommand cmd = new SqlCommand(sql, conn);
+                    cmd.ExecuteNonQuery();
+                    //SqlCommand cmd1 = new SqlCommand("update 物品 set 物品状态='无人认领' where 物品id='" + textBox3.Text + "'", conn);
+                    //cmd1.ExecuteNonQuery();
+                    MessageBox.Show("删除成功!", "提示");
+                    DataSet dsl = new DataSet();
+                    SqlDataAdapter sda;
+                    sda = new SqlDataAdapter("Select * from 物品", conn);
+                    sda.Fill(dsl);
+                    dataGridView1.DataSource = dsl.Tables[0];
+                    DataSet dsl1 = new DataSet();
+                    SqlDataAdapter sda1;
+                    sda1 = new SqlDataAdapter("Select * from 物品 where 物品状态='无人认领'", conn);
+                    sda1.Fill(dsl1);
+                    dataGridView1.DataSource = dsl1.Tables[0];
+                    dataGridView2.DataSource = dsl1.Tables[0];
+                    conn.Close();
+                }
+                if (b < 1) { MessageBox.Show("请输入正确的选项!", "提示"); }
+            }
+            else { MessageBox.Show("请输入删除完整信息！", "提示"); }
+        }
+        private void button4_Click(object sender, EventArgs e)
+        {
+            string str = "server=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+            SqlConnection conn = new SqlConnection(str);
+            conn.Open();
+            DataSet dsl = new DataSet();
+            SqlDataAdapter sda;
+            sda = new SqlDataAdapter("Select * from 认定", conn);
+            sda.Fill(dsl);
+            dataGridView1.DataSource = dsl.Tables[0];
+        }
+        private void dataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+
+        }
+
+        private void label2_Click(object sender, EventArgs e)
+        {
+
+        }
+    }
+}
+管理物品信息.cs
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Data.SqlClient;
+namespace 管理员2
+{
+    public partial class 管理物品信息 : Form
+    {
+        public 管理物品信息()
+        {
+            InitializeComponent();
+        }
+        private void Form3_Load(object sender, EventArgs e)
+        {
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.用户”中。您可以根据需要移动或删除它。
+            this.用户TableAdapter.Fill(this.校园失物招领系统DataSet4.用户);
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.物品”中。您可以根据需要移动或删除它。
+            this.物品TableAdapter.Fill(this.校园失物招领系统DataSet4.物品);
+        }
+        private void button1_Click(object sender, EventArgs e) //查询物品信息
+        {
+            if (this.textBox1.Text == "")
+                MessageBox.Show("请输入需要查询的物品id！","提示");
+            else
+            {
+                string strsql = "Select * from 物品 where 物品id like '%" + textBox1.Text + "%'";
+                SqlConnection conn = new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+                SqlCommand cmd = new SqlCommand(strsql, conn);
+                SqlDataAdapter da = new SqlDataAdapter(cmd);
+                DataSet ds = new DataSet();
+                da.Fill(ds);
+                dataGridView1.DataSource = ds.Tables[0];
+            }
+        }
+        
+        private void button2_Click(object sender, EventArgs e) //添加物品信息
+        {
+            string str = "Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+            SqlConnection conn = new SqlConnection(str);
+            conn.Open();
+            string stj;
+            if (comboBox1.Text != "" && comboBox2.Text != "" && comboBox3.Text != "" && comboBox4.Text != "" && textBox6.Text != "")
+            {
+                SqlCommand cmd1 = new SqlCommand("select count(*) from 物品 where 物品id=null", conn);
+                int b = Convert.ToInt32(cmd1.ExecuteScalar());
+                if (b < 1)
+                {
+                    stj = "insert into 物品(案件性质,种类,时间,区域,物品状态,发布账号) values('" + comboBox1.Text + "','" + comboBox2.Text + "','" + dateTimePicker1.Value.ToString("d") + "','" + comboBox3.Text + "','" + comboBox4.Text + "','" + textBox6.Text + "')";
+                    SqlCommand cmd = new SqlCommand(stj, conn);
+                    cmd.ExecuteNonQuery();
+                    MessageBox.Show("添加成功!", "提示");
+                    DataSet dsl1 = new DataSet();
+                    SqlDataAdapter sda1;
+                    sda1 = new SqlDataAdapter("Select * from 物品 ", conn);
+                    sda1.Fill(dsl1);
+                    dataGridView1.DataSource = dsl1.Tables[0];
+                    dataGridView2.DataSource = dsl1.Tables[0];
+                    conn.Close();
+                }
+                if (b >= 1)
+                {
+                    MessageBox.Show("该物品已存在！", "提示");
+                    comboBox1.Text = "";
+                }
+            }
+            else { MessageBox.Show("添加失败!", "提示"); }
+            conn.Close();
+        }
+        private void button3_Click(object sender, EventArgs e) //删除物品信息
+        {
+            try
+            {
+                if (this.textBox7.Text == "")
+                    MessageBox.Show("请输入需要删除的物品信息！","提示");
+                else
+                {
+                    string strsql = " delete from 物品 where 物品id like '%" + textBox7.Text + "%'";
+                    //创建并实例化SqlConnection
+                    SqlConnection conn =
+                    new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+                    SqlCommand cmd = new SqlCommand(strsql, conn);
+                    SqlDataAdapter da = new SqlDataAdapter(cmd);
+                    //创建DataSet用来存储数据
+                    DataSet ds = new DataSet();
+                    //将数据填充到DataSet中
+                    da.Fill(ds);
+                    //在DataGirdView中显示
+                    MessageBox.Show("已成功删除！", "提示");
+                    dataGridView3.DataSource = ds.Tables[0];
+                }  
+            }
+            catch
+            {
+                MessageBox.Show("完成！","提示");
+            }
+          
+        }
+        private void button6_Click(object sender, EventArgs e) //刷新界面
+        {
+            string strsql = " select * from 物品 ";
+            SqlConnection conn =
+            new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+            SqlCommand cmd = new SqlCommand(strsql, conn);
+            SqlDataAdapter da = new SqlDataAdapter(cmd);
+            DataSet ds = new DataSet();
+            da.Fill(ds);
+            dataGridView3.DataSource = ds.Tables[0];
+        }
+        private void button4_Click(object sender, EventArgs e)
+        {
+            string strsql = " select * from 物品 ";
+            SqlConnection conn =
+            new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+            SqlCommand cmd = new SqlCommand(strsql, conn);
+            SqlDataAdapter da = new SqlDataAdapter(cmd);
+            DataSet ds = new DataSet();
+            da.Fill(ds);
+            dataGridView1.DataSource = ds.Tables[0];
+        }
+        private void button5_Click(object sender, EventArgs e)
+        {
+            string strsql = " select * from 物品 ";
+            SqlConnection conn =
+            new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+            SqlCommand cmd = new SqlCommand(strsql, conn);
+            SqlDataAdapter da = new SqlDataAdapter(cmd);
+            DataSet ds = new DataSet();
+            da.Fill(ds);
+            dataGridView2.DataSource = ds.Tables[0];
+        }
+        private void button7_Click(object sender, EventArgs e) //修改物品状态信息
+        {
+            try
+            {
+                if (this.textBox8.Text == "" || this.comboBox5.Text == "")
+                    MessageBox.Show("请输入修改内容！", "提示");
+                else
+                {
+                    string strsql = "update 物品 set 物品状态 = '" + comboBox5.Text + "'where 物品id = '" + textBox8.Text + "'";
+                    SqlConnection conn = new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+                    SqlCommand cmd = new SqlCommand(strsql, conn);
+                    SqlDataAdapter da = new SqlDataAdapter(cmd);
+                    DataSet ds = new DataSet();
+                    da.Fill(ds);
+                    if (ds != null && ds.Tables != null && ds.Tables.Count > 0 && ds.Tables[0].Rows.Count > 0)
+                    {
+                        MessageBox.Show("已成功修改物品状态！", "提示");
+                    }
+                    dataGridView4.DataSource = ds.Tables[0];
+                    MessageBox.Show("已成功修改物品状态！", "提示");
+                }
+            }
+            catch
+            {
+                MessageBox.Show("修改成功！", "提示");
+            }
+            
+        }
+        private void button8_Click(object sender, EventArgs e) //刷新界面
+        {
+            string strsql = " select * from 物品 ";
+            SqlConnection conn =
+            new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+            SqlCommand cmd = new SqlCommand(strsql, conn);
+            SqlDataAdapter da = new SqlDataAdapter(cmd);
+            DataSet ds = new DataSet();
+            da.Fill(ds);
+            dataGridView4.DataSource = ds.Tables[0];
+        }
+        private void dataGridView4_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+
+        }
+    }
+}
+
+管理用户信息.cs
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Data.SqlClient;
+
+namespace 管理员2
+{
+    public partial class 管理用户信息 : Form
+    {
+        public 管理用户信息()
+        {
+            InitializeComponent();
+        }
+        private void label2_Click(object sender, EventArgs e)
+        {
+        }
+        private void Form2_Load(object sender, EventArgs e)
+        {
+            // TODO: 这行代码将数据加载到表“校园失物招领系统DataSet4.用户”中。您可以根据需要移动或删除它。
+            this.用户TableAdapter.Fill(this.校园失物招领系统DataSet4.用户);
+        }
+        private void button1_Click(object sender, EventArgs e) //查询用户信息
+        {
+            if (this.textBox1.Text == "")
+                MessageBox.Show("请输入查询的用户账号！","提示");
+            else
+            {
+                string strsql = " select * from 用户 where 账号 like '%" + textBox1.Text + "%'";
+                //创建并实例化SqlConnection
+                SqlConnection conn =
+                new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+                //  ew SqlConnection("server=.;uid=sa;pwd=111111;database=学生信息库
+                SqlCommand cmd = new SqlCommand(strsql, conn);
+                SqlDataAdapter da = new SqlDataAdapter(cmd);
+                //创建DataSet用来存储数据
+                DataSet ds = new DataSet();
+                //将数据填充到DataSet中
+                da.Fill(ds);
+                //在DataGirdView中显示
+                dataGridView1.DataSource = ds.Tables[0];
+            }
+        }
+        private void button2_Click(object sender, EventArgs e) //添加用户信息
+        {
+            try
+            {
+                string str = "server=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+                SqlConnection conn = new SqlConnection(str);
+                conn.Open();
+                string stj;
+                if (textBox2.Text != "" && textBox3.Text != "" && textBox4.Text != "")
+                {
+                    SqlCommand cmd1 = new SqlCommand("select count(*) from 用户 where 账号='" + textBox4.Text + "'", conn);
+                    int b = Convert.ToInt32(cmd1.ExecuteScalar());
+                    if (b < 1)
+                    {
+                        stj = "insert into 用户(昵称,姓名,联系方式) values('" + textBox2.Text + "','" + textBox3.Text + "','" + textBox4.Text + "')";
+                        SqlCommand cmd = new SqlCommand(stj, conn);
+                        cmd.ExecuteNonQuery();
+                        MessageBox.Show("添加成功!", "提示");
+                        DataSet dsl1 = new DataSet();
+                        SqlDataAdapter sda1;
+                        sda1 = new SqlDataAdapter("Select 昵称,姓名,联系方式 from 用户 where 认领成功数!=0", conn);
+                        sda1.Fill(dsl1);
+                        dataGridView1.DataSource = dsl1.Tables[0];
+                        dataGridView2.DataSource = dsl1.Tables[0];
+                        conn.Close();
+                    }
+                    if (b >= 1)
+                    {
+                        MessageBox.Show("该用户已存在！", "提示");
+                        textBox1.Text = "";
+                    }
+                }
+                else { MessageBox.Show("添加失败!", "提示"); }
+                conn.Close();
+            }
+            catch
+            {
+                MessageBox.Show("一个用户只能绑定一个联系方式！", "提示");
+            }
+        }
+        private void button3_Click(object sender, EventArgs e) //刷新界面
+        {
+            string strsql = " select * from 用户 ";
+            SqlConnection conn =
+            new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+            SqlCommand cmd = new SqlCommand(strsql, conn);
+            SqlDataAdapter da = new SqlDataAdapter(cmd);
+            DataSet ds = new DataSet();
+            da.Fill(ds);
+            dataGridView2.DataSource = ds.Tables[0];
+        }
+        private void button4_Click(object sender, EventArgs e)//删除用户信息
+        {
+            try
+            {
+                string str = "Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+                SqlConnection conn = new SqlConnection(str);
+                conn.Open();
+                if (textBox5.Text == "")
+                {
+                    MessageBox.Show("请输入要删除的用户账号", "提示");
+                }
+                if (textBox5.Text != "")
+                {
+                    string a = "select count(*) from 用户 where 账号='" + textBox5.Text + "'";
+                    SqlCommand cmd3 = new SqlCommand(a, conn);
+                    int s = Convert.ToInt32(cmd3.ExecuteScalar());
+                    if (s > 0)
+                    {
+                        SqlCommand cmd6 = new SqlCommand("select count(*) from 用户 where 账号='" + textBox5.Text + "'", conn);
+                        int c = Convert.ToInt32(cmd6.ExecuteScalar());
+                        if (c > 0)
+                        {
+                            SqlCommand cmd = new SqlCommand("delete from 用户 where 账号='" + textBox5.Text + "'", conn);
+                            cmd.ExecuteNonQuery();
+                            SqlCommand cmd1 = new SqlCommand("delete from 用户 where 账号='" + textBox5.Text + "'", conn);
+                            cmd1.ExecuteNonQuery();
+                            MessageBox.Show("删除成功!", "提示");
+                        }
+                        if (c < 1)
+                        {
+                            SqlCommand cmd = new SqlCommand("delete from 用户 where 账号='" + textBox5.Text + "'", conn);
+                            cmd.ExecuteNonQuery();
+                            MessageBox.Show("删除成功!", "提示");
+                        }
+                        DataSet dsl1 = new DataSet();
+                        SqlDataAdapter sda1;
+                        sda1 = new SqlDataAdapter("Select 账号 from 用户 ", conn);
+                        sda1.Fill(dsl1);
+                        dataGridView3.DataSource = dsl1.Tables[0];
+                        dataGridView1.DataSource = dsl1.Tables[0];
+                        SqlDataAdapter sda = new SqlDataAdapter("select 姓名 from 用户 ", conn);
+                        DataSet ds = new DataSet();
+                        sda.Fill(ds);
+                        comboBox1.DataSource = ds.Tables[0];
+                        comboBox1.DisplayMember = "姓名";
+                        comboBox1.ValueMember = "姓名";
+                        conn.Close();
+                    }
+                    if (s < 1)
+                    {
+                        MessageBox.Show("无此用户账号!", "提示");
+                        textBox2.Text = "";
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                MessageBox.Show("错误", "提示");
+            }
+        }
+        private void tabPage3_Click(object sender, EventArgs e)
+        {
+        }
+        private void button5_Click(object sender, EventArgs e) //删除用户信息时的校对查询
+        {
+            string str = "Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+            SqlConnection conn = new SqlConnection(str);
+            conn.Open();
+            DataSet dsl = new DataSet();
+            SqlDataAdapter sda;
+            sda = new SqlDataAdapter("Select * from 用户 where 姓名 like'" + comboBox1.Text + "' and 联系方式 like '%" + textBox6.Text + "%'", conn);
+            sda.Fill(dsl);
+            dataGridView3.DataSource = dsl.Tables[0];
+        }
+        private void button7_Click(object sender, EventArgs e) //刷新界面
+        {
+            string strsql = " select * from 用户 ";
+            SqlConnection conn =
+            new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+            SqlCommand cmd = new SqlCommand(strsql, conn);
+            SqlDataAdapter da = new SqlDataAdapter(cmd);
+            DataSet ds = new DataSet();
+            da.Fill(ds);
+            dataGridView1.DataSource = ds.Tables[0];
+        }
+        private void button6_Click(object sender, EventArgs e) //刷新界面
+        {
+            string strsql = " select * from 用户 ";
+            SqlConnection conn =
+            new SqlConnection("Data Source=.;Initial Catalog=校园失物招领系统;Integrated Security=True");
+            SqlCommand cmd = new SqlCommand(strsql, conn);
+            SqlDataAdapter da = new SqlDataAdapter(cmd);
+            DataSet ds = new DataSet();
+            da.Fill(ds);
+            dataGridView3.DataSource = ds.Tables[0];
+        }
+    }
+}
+导出数据.cs
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using Excel = Microsoft.Office.Interop.Excel;
+using System.Data.SqlClient;
+namespace 管理员2
+{
+    public partial class 导出数据 : Form
+    {
+        public 导出数据()
+        {
+            InitializeComponent();
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            string connString = "server=.;Initial Catalog=校园失物招领系统;Integrated Security=true";
+            SqlConnection conn = new SqlConnection(connString);
+            SqlCommand comm = new SqlCommand();
+            comm.Connection = conn;
+            try
+            {
+                conn.Open();
+                string sql = "select * from 用户";
+                SqlDataAdapter da = new SqlDataAdapter(sql, connString);
+                DataSet ds = new DataSet();
+                da.Fill(ds,"用户");
+                dataGridView1.DataSource = ds;
+                dataGridView1.DataMember = "用户";
+                conn.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "操作数据库出错！", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+            }            
+        }
+        private void button2_Click(object sender, EventArgs e)
+        {
+            string fileName = "用户认领数数据";//可以在这里设置默认文件名
+            string saveFileName = "";//文件保存名
+            SaveFileDialog saveDialog = new SaveFileDialog();//实例化文件对象
+            saveDialog.DefaultExt = "xlsx";//文件默认扩展名
+            saveDialog.Filter = "Excel文件|*.xlsx";//获取或设置当前文件名筛选器字符串，该字符串决定对话框的“另存为文件类型”或“文件类型”框中出现的选择内容。
+            saveDialog.FileName = fileName;
+            saveDialog.ShowDialog();//打开保存窗口给你选择路径和设置文件名
+            saveFileName = saveDialog.FileName;
+            if (saveFileName.IndexOf(":") < 0) return; //被点了取消
+            Microsoft.Office.Interop.Excel.Application xlApp = new Microsoft.Office.Interop.Excel.Application();
+            if (xlApp == null)
+            {
+                MessageBox.Show("无法创建Excel对象，您的电脑可能未安装Excel");
+                return;
+            }
+            Microsoft.Office.Interop.Excel.Workbooks workbooks = xlApp.Workbooks;//Workbooks代表一个 Microsoft Excel 工作簿
+            Microsoft.Office.Interop.Excel.Workbook workbook = workbooks.Add(Microsoft.Office.Interop.Excel.XlWBATemplate.xlWBATWorksheet);//新建一个工作表。 新工作表将成为活动工作表。
+            Microsoft.Office.Interop.Excel.Worksheet worksheet = (Microsoft.Office.Interop.Excel.Worksheet)workbook.Worksheets[1];//取得sheet1 
+            for (int i = 0; i < dataGridView1.ColumnCount; i++)//遍历循环获取DataGridView标题
+            { worksheet.Cells[1, i + 1] = dataGridView1.Columns[i].HeaderText; }// worksheet.Cells[1, i + 1]表示工作簿第一行第i+1列，Columns[i].HeaderText表示第i列的表头
+            //写入数值
+            for (int r = 0; r < dataGridView1.Rows.Count; r++)//这里表示数据的行标,dataGridView1.Rows.Count表示行数
+            {
+                for (int i = 0; i < dataGridView1.ColumnCount; i++)//遍历r行的列数
+                {
+                    worksheet.Cells[r + 2, i + 1] = dataGridView1.Rows[r].Cells[i].Value;//Cells[r + 2, i + 1]表示工作簿从第二行开始第一行保存为表头了，dataGridView1.Rows[r].Cells[i].Value获取列的r行i值
+                }
+                System.Windows.Forms.Application.DoEvents();//实时更新表格
+            }
+            worksheet.Columns.EntireColumn.AutoFit();//列宽自适应
+            MessageBox.Show(fileName + "资料保存成功", "提示", MessageBoxButtons.OK);//提示保存成功
+            if (saveFileName != "")//saveFileName保存文件名不为空
+            {
+                try
+                {
+                    workbook.Saved = true;//获取或设置一个值，该值指示工作簿自上次保存以来是否进行了更改
+                    workbook.SaveCopyAs(saveFileName);  //fileSaved = true;将工作簿副本保存到文件中，但不修改内存中打开的工作簿                 
+                }
+                catch (Exception ex)
+                {//fileSaved = false;                      
+                    MessageBox.Show("导出文件时出错,文件可能正被打开！\n" + ex.Message);
+                }
+            }
+            xlApp.Quit();
+            GC.Collect();//强行销毁           
+        }
+
+        private void Form5_Load(object sender, EventArgs e)
+        {
+        }
+    }
+}
